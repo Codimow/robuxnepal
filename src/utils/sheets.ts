@@ -30,16 +30,17 @@ const sheets = google.sheets({ version: "v4", auth });
 const SPREADSHEET_ID = config.GOOGLE_SHEET_ID || "your_sheet_id_here";
 
 export interface PaymentData {
+  orderId: string;
   robloxUsername: string;
   discordUsername: string;
   discordUserId: string;
   robuxAmount: number;
   paymentAmount: number;
-  screenshotUrl: string;
-  timestamp: string;
-  status: "incomplete" | "complete";
-  ticketChannelId: string;
-  orderId: string;
+  screenshotUrl?: string;
+  timestamp?: string;
+  status: "pending" | "incomplete" | "complete";
+  ticketChannelId?: string;
+  createdAt: string;
   completionTimestamp?: string;
 }
 
@@ -47,6 +48,15 @@ export class PaymentSheetService {
   // Add payment data to the sheet
   static async addPayment(paymentData: PaymentData): Promise<void> {
     try {
+      // Validate required fields
+      if (
+        !paymentData.orderId ||
+        !paymentData.robloxUsername ||
+        !paymentData.discordUsername
+      ) {
+        throw new Error("Missing required payment data fields");
+      }
+
       const values = [
         [
           paymentData.orderId,
@@ -55,10 +65,10 @@ export class PaymentSheetService {
           paymentData.discordUserId,
           paymentData.robuxAmount,
           paymentData.paymentAmount,
-          paymentData.screenshotUrl,
-          paymentData.timestamp,
+          paymentData.screenshotUrl || "",
+          paymentData.createdAt,
           paymentData.status,
-          paymentData.ticketChannelId,
+          paymentData.ticketChannelId || "",
           paymentData.completionTimestamp || "",
         ],
       ];
@@ -72,10 +82,14 @@ export class PaymentSheetService {
         },
       });
 
-      console.log("Payment data added to sheet successfully");
+      console.log(
+        `Payment data added to sheet successfully - Order ID: ${paymentData.orderId}`,
+      );
     } catch (error) {
       console.error("Error adding payment to sheet:", error);
-      throw error;
+      throw new Error(
+        `Failed to add payment to sheet: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -157,12 +171,12 @@ export class PaymentSheetService {
             robloxUsername: row[1],
             discordUsername: row[2],
             discordUserId: row[3],
-            robuxAmount: parseInt(row[4]),
-            paymentAmount: parseInt(row[5]),
-            screenshotUrl: row[6],
-            timestamp: row[7],
-            status: row[8] as "incomplete" | "complete",
-            ticketChannelId: row[9],
+            robuxAmount: parseInt(row[4]) || 0,
+            paymentAmount: parseInt(row[5]) || 0,
+            screenshotUrl: row[6] || "",
+            createdAt: row[7] || new Date().toISOString(),
+            status: row[8] as "pending" | "incomplete" | "complete",
+            ticketChannelId: row[9] || "",
             completionTimestamp: row[10] || undefined,
           };
         }
@@ -202,12 +216,12 @@ export class PaymentSheetService {
               robloxUsername: row[1],
               discordUsername: row[2],
               discordUserId: row[3],
-              robuxAmount: parseInt(row[4]),
-              paymentAmount: parseInt(row[5]),
-              screenshotUrl: row[6],
-              timestamp: row[7],
+              robuxAmount: parseInt(row[4]) || 0,
+              paymentAmount: parseInt(row[5]) || 0,
+              screenshotUrl: row[6] || "",
+              createdAt: row[7] || new Date().toISOString(),
               status: row[8] as "complete",
-              ticketChannelId: row[9],
+              ticketChannelId: row[9] || "",
               completionTimestamp: row[10],
             });
           }
@@ -232,7 +246,7 @@ export class PaymentSheetService {
         "Robux Amount",
         "Payment Amount (NPR)",
         "Screenshot URL",
-        "Timestamp",
+        "Created At",
         "Status",
         "Ticket Channel ID",
         "Completion Timestamp",
