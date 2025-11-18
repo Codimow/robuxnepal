@@ -1,26 +1,14 @@
 import { google } from "googleapis";
 import { config } from "./config";
 
-// Service account credentials
-const serviceAccountKey = {
-  type: "service_account",
-  project_id: "top-chain-473614-t8",
-  private_key_id: "6081e9010d8814711a5eea3b1bfd00adac8b183a",
-  private_key:
-    "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCnGmwSVFeSli1f\n03CL/u5QY57Nn3ONLjV7CPsHU2mG3WuZMvvpxUk6OUsOH9Ru4JidG4sDk8pUp4pf\njiwIsKEvKxcy8hIEgsGQCZmaXVa9Ut2VBFpZ/9e3hF+onYiHAuc05PcJZhMK8QhN\nkTK8mFZBXtKnPXTr5lfp7Vje7fXnNIvcJ3525wGcP+ZYFaIUVwbhfElqgNF3VfQC\nxLwX3jqv+Zm0iO7/JybYQe+2TP5SbflojekEWj4yQ4eo8hRAdX5DnUtoxxMo9r3+\n9uvHO8jkVurZFVC4HzqLdROGrffWnKi76n6T5CoJfOVTRk+CR1QmgL4ynNkCsjVF\nkYL/898FAgMBAAECggEAG4uEcwUKJnSw6BHfhIQyXnf9bmGxV31dfXl+f7elNoD7\nQpaf5eoKZxmYoKxohRpqrcMjiCRtfsTbT2MNKSWMfEz7Fv/GLo4rQAYFFuf5611k\nfzLnfdxpf6vHZPEK106INDTl79uumegfeUHM/j+SQFZUHRNJWbVvmnTwaFcLaOAA\nyVa0J4jRwmRqaJFkGPuVw6Q63wpMPIcvt5vrc59jDLXxGBLOeJuuAwU6x9+V2I/u\neKuJMFt7a6rHvZcdV/UevYFwI8fjns61246w9euJ8jCYX4oZzaxqO7Ief4nJ6WlS\nXIvqwjjbiH34q2ju617ayzv+P0Q5RcFO0/a+P7EA4QKBgQDrNxkxOcc9hgSczBik\n6lKOFq+RQQ46SCMx8A/WqZK8ssEZjzQT3FK2a966+yEIbSHNPFaUo6XCj174T2dW\nYOX3WYeTOXrWfsr0yLnk25uIRVmbSTgPrRJviuo+7ENRbmTTOGLeI09pNEAH/Kz8\nDI0pwf5jeV8HowsaavDIjeHsuQKBgQC13oiRMkuNINHvQt0Zu+eLLQAtaKrjbBDv\nvgWPTXprkvyZT9KgnjeYz3WflDqKeSAeagSfAKUJpkzplGKl0anEUo+sWs4Wcs6F\npSC+fM5w+DhTtK2pgWNibJGys2L2JKbueFB//r/LA7IjSHwflGWKDkfJkpSPbNCJ\nj36TYecWrQKBgQCijSpYzZA2oWaQoa+qUNGKpnzgii/18SJ5gWjAteHVjEdMjZ20\n1/9FWFjNqX2ToC/K8Rb4k/ua8I/2VJGarU5f2TyLbx7IG0nRTuLBGU9sJlkdqsUW\neEoUUdE+ePKw1PTSz9XrpEVd9CEIJAO8EESCBjHyts8IrRGgSSVrxDnM6QKBgADk\nCyUy6t3RGFYkrLKQkgzDdqnCRnwAroCOHLbb+UqHmMcjdfOlcr5D3d6fOj4tY7Pi\nbw1cUnKepufJ+0W2pi84/E0q0LGZdFuBOIzWTaiN/rCiROt8n8D+qSQH7ucnvM2U\nN0i5NbVH2lqD41/AOVMYyM868ZFWRhs2YbdVFm2tAoGAWNbMcaHJ8EsR6yv/Ys+c\n9vWO9S4Cx7BDCNlZvdpvldHqnLRTloDciAu4wFD61MfX1t+POV78W+RbfaPQJIOp\nz7EmLMdqVteC2JKgLbZb3xkJRGXb+WAbUiXre0jLgk0VNrRhOuUwjVeLs0nvjZX3\nX/uRMRC20Hkq9Bd4xvIqMYc=\n-----END PRIVATE KEY-----\n",
-  client_email: "robux-958@top-chain-473614-t8.iam.gserviceaccount.com",
-  client_id: "104167989804273147328",
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url:
-    "https://www.googleapis.com/robot/v1/metadata/x509/robux-958%40top-chain-473614-t8.iam.gserviceaccount.com",
-  universe_domain: "googleapis.com",
-};
-
 // Initialize Google Sheets API
 const auth = new google.auth.GoogleAuth({
-  credentials: serviceAccountKey,
+  credentials: {
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    private_key: process.env.GOOGLE_PRIVATE_KEY
+      ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n")
+      : undefined,
+  },
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
