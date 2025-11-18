@@ -188,7 +188,7 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
     interaction.fields.getTextInputValue("roblox_username");
   const robuxAmount = interaction.fields.getTextInputValue("robux_amount");
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply();
 
   try {
     // Validate robux amount
