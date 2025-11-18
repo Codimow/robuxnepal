@@ -1,14 +1,13 @@
 import { google } from "googleapis";
+import { JWT } from "google-auth-library";
 import { config } from "./config";
 
 // Initialize Google Sheets API
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY
-      ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n")
-      : undefined,
-  },
+const auth = new JWT({
+  email: process.env.GOOGLE_CLIENT_EMAIL,
+  key: process.env.GOOGLE_PRIVATE_KEY
+    ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n")
+    : undefined,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
