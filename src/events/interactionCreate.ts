@@ -12,6 +12,7 @@ import {
   ChannelType,
   PermissionFlagsBits,
   Collection,
+  TextChannel,
 } from "discord.js";
 import { config } from "../utils/config";
 import { PaymentSheetService } from "../utils/sheets";
@@ -188,7 +189,7 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
     interaction.fields.getTextInputValue("roblox_username");
   const robuxAmount = interaction.fields.getTextInputValue("robux_amount");
 
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
 
   try {
     // Validate robux amount
@@ -201,7 +202,6 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
     const ticketChannel = await createTicketChannel(
       interaction,
       robloxUsername,
-      robuxAmountNum,
     );
 
     // Generate order ID
@@ -220,7 +220,7 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
     });
 
     // Create ticket embed with verification buttons
-    const ticketEmbed = await createTicketEmbed(
+    const privateTicketEmbed = createPrivateTicketEmbed(
       interaction,
       robloxUsername,
       robuxAmountNum,
@@ -230,7 +230,7 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
 
     await ticketChannel.send({
       content: `<@&${config.MODERATOR_ROLE_ID}> New ticket created!`,
-      embeds: [ticketEmbed],
+      embeds: [privateTicketEmbed],
       components: [verifyButtons],
     });
 
@@ -241,8 +241,6 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
     await sendTicketConfirmation(
       interaction,
       ticketChannel,
-      robloxUsername,
-      robuxAmountNum,
     );
   } catch (error) {
     console.error("Error creating ticket:", error);
@@ -321,7 +319,6 @@ async function handleVerifyModalSubmit(interaction: ModalSubmitInteraction) {
 async function createTicketChannel(
   interaction: ModalSubmitInteraction,
   robloxUsername: string,
-  robuxAmount: number,
 ) {
   const permissionOverwrites = [
     {
@@ -361,7 +358,7 @@ async function createTicketChannel(
   });
 }
 
-async function createTicketEmbed(
+function createPrivateTicketEmbed(
   interaction: ModalSubmitInteraction,
   robloxUsername: string,
   robuxAmount: number,
@@ -400,7 +397,7 @@ async function createTicketEmbed(
   return embed;
 }
 
-async function sendTicketInstructions(channel: any) {
+async function sendTicketInstructions(channel: TextChannel) {
   const instructionsEmbed = new EmbedBuilder()
     .setColor(config.EMBED_COLORS.INFO)
     .setTitle("📋 Ticket Instructions")
@@ -436,24 +433,15 @@ async function sendTicketInstructions(channel: any) {
 
 async function sendTicketConfirmation(
   interaction: ModalSubmitInteraction,
-  ticketChannel: any,
-  robloxUsername: string,
-  robuxAmount: number,
+  ticketChannel: TextChannel,
 ) {
   const confirmEmbed = new EmbedBuilder()
     .setColor(config.EMBED_COLORS.SUCCESS)
     .setTitle("✅ Ticket Created Successfully!")
-    .setDescription(`Your ticket has been created in ${ticketChannel}`)
-    .addFields(
-      { name: "🎮 Roblox Username", value: robloxUsername, inline: true },
-      { name: "💰 Robux Amount", value: robuxAmount.toString(), inline: true },
-      { name: "💳 Payment Amount", value: `Rs.${robuxAmount}`, inline: true },
+    .setDescription(
+      `Your ticket has been created in ${ticketChannel}. Please proceed there for payment instructions.`,
     )
     .setFooter({ text: "A moderator will assist you shortly!" });
-
-  if (config.QR_CODE_URL) {
-    confirmEmbed.setImage(config.QR_CODE_URL);
-  }
 
   await interaction.editReply({ embeds: [confirmEmbed] });
 }
