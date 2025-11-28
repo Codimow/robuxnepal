@@ -60,6 +60,6 @@ export = {
             } catch (error) {
                 console.error('Error deleting ticket channel:', error);
             }
-        }, config.AUTO_DELETE_DELAY);
+        }, config.AUTO_CLOSE_DELAY_MS);
     },
 };
