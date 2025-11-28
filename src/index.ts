@@ -263,7 +263,7 @@ client.on("messageCreate", async (message) => {
       robuxAmount: robuxAmount,
       paymentAmount: robuxAmount, // 1 Robux = 1 NPR
       screenshotUrl: firstAttachment.url,
-      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       status: "incomplete" as const,
       ticketChannelId: message.channel.id,
     };

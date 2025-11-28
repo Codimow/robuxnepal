@@ -47,23 +47,23 @@ export class PaymentSheetService {
       const values = [
         [
           paymentData.orderId,
-          paymentData.robloxUsername,
           paymentData.discordUsername,
-          paymentData.discordUserId,
+          paymentData.robloxUsername,
           paymentData.robuxAmount,
           paymentData.paymentAmount,
-          paymentData.screenshotUrl || "",
-          paymentData.createdAt,
           paymentData.status,
-          paymentData.ticketChannelId || "",
+          paymentData.createdAt,
           paymentData.completionTimestamp || "",
+          paymentData.discordUserId,
+          paymentData.ticketChannelId || "",
+          paymentData.screenshotUrl || "",
         ],
       ];
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
         range: "Sheet1!A:K",
-        valueInputOption: "RAW",
+        valueInputOption: "USER_ENTERED",
         requestBody: {
           values: values,
         },
@@ -108,22 +108,22 @@ export class PaymentSheetService {
         throw new Error("Order ID not found");
       }
 
-      // Update the status column (column I, 9th column)
+      // Update the status column (column F, 6th column)
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `Sheet1!I${rowIndex}`,
+        range: `Sheet1!F${rowIndex}`,
         valueInputOption: "RAW",
         requestBody: {
           values: [[status]],
         },
       });
 
-      // Update completion timestamp (column K, 11th column) if status is complete
+      // Update completion timestamp (column H, 8th column) if status is complete
       if (status === "complete") {
         const completionTimestamp = new Date().toISOString();
         await sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
-          range: `Sheet1!K${rowIndex}`,
+          range: `Sheet1!H${rowIndex}`,
           valueInputOption: "RAW",
           requestBody: {
             values: [[completionTimestamp]],
@@ -153,19 +153,41 @@ export class PaymentSheetService {
 
       for (const row of rows) {
         if (row[0] === orderId) {
-          return {
-            orderId: row[0],
-            robloxUsername: row[1],
-            discordUsername: row[2],
-            discordUserId: row[3],
-            robuxAmount: parseInt(row[4]) || 0,
-            paymentAmount: parseInt(row[5]) || 0,
-            screenshotUrl: row[6] || "",
-            createdAt: row[7] || new Date().toISOString(),
-            status: row[8] as "pending" | "incomplete" | "complete",
-            ticketChannelId: row[9] || "",
-            completionTimestamp: row[10] || undefined,
-          };
+          // Detect if this is old format or new format
+          // New format has status at index 5, old format has it at index 8
+          const isNewFormat = row[5] === "pending" || row[5] === "incomplete" || row[5] === "complete";
+
+          if (isNewFormat) {
+            // New format: OrderId, DiscordUsername, RobloxUsername, RobuxAmount, PaymentAmount, Status, CreatedAt, CompletionTimestamp, DiscordUserId, TicketChannelId, ScreenshotURL
+            return {
+              orderId: row[0],
+              discordUsername: row[1],
+              robloxUsername: row[2],
+              robuxAmount: parseInt(row[3]) || 0,
+              paymentAmount: parseInt(row[4]) || 0,
+              status: row[5] as "pending" | "incomplete" | "complete",
+              createdAt: row[6] || new Date().toISOString(),
+              completionTimestamp: row[7] || undefined,
+              discordUserId: row[8],
+              ticketChannelId: row[9] || "",
+              screenshotUrl: row[10] || "",
+            };
+          } else {
+            // Old format: OrderId, RobloxUsername, DiscordUsername, DiscordUserId, RobuxAmount, PaymentAmount, ScreenshotURL, CreatedAt, Status, TicketChannelId, CompletionTimestamp
+            return {
+              orderId: row[0],
+              robloxUsername: row[1],
+              discordUsername: row[2],
+              discordUserId: row[3],
+              robuxAmount: parseInt(row[4]) || 0,
+              paymentAmount: parseInt(row[5]) || 0,
+              screenshotUrl: row[6] || "",
+              createdAt: row[7] || new Date().toISOString(),
+              status: row[8] as "pending" | "incomplete" | "complete",
+              ticketChannelId: row[9] || "",
+              completionTimestamp: row[10] || undefined,
+            };
+          }
         }
       }
 
@@ -194,23 +216,45 @@ export class PaymentSheetService {
       for (let i = 1; i < rows.length; i++) {
         // Start from 1 to skip header
         const row = rows[i];
-        if (row[8] === "complete" && row[10]) {
+
+        // Detect format
+        const isNewFormat = row[5] === "pending" || row[5] === "incomplete" || row[5] === "complete";
+        const statusIndex = isNewFormat ? 5 : 8;
+        const completionIndex = isNewFormat ? 7 : 10;
+
+        if (row[statusIndex] === "complete" && row[completionIndex]) {
           // Status is complete and has completion timestamp
-          const completionTime = new Date(row[10]).getTime();
+          const completionTime = new Date(row[completionIndex]).getTime();
           if (now - completionTime >= twentyFourHours) {
-            paymentsToDelete.push({
-              orderId: row[0],
-              robloxUsername: row[1],
-              discordUsername: row[2],
-              discordUserId: row[3],
-              robuxAmount: parseInt(row[4]) || 0,
-              paymentAmount: parseInt(row[5]) || 0,
-              screenshotUrl: row[6] || "",
-              createdAt: row[7] || new Date().toISOString(),
-              status: row[8] as "complete",
-              ticketChannelId: row[9] || "",
-              completionTimestamp: row[10],
-            });
+            if (isNewFormat) {
+              paymentsToDelete.push({
+                orderId: row[0],
+                discordUsername: row[1],
+                robloxUsername: row[2],
+                robuxAmount: parseInt(row[3]) || 0,
+                paymentAmount: parseInt(row[4]) || 0,
+                status: row[5] as "complete",
+                createdAt: row[6] || new Date().toISOString(),
+                completionTimestamp: row[7],
+                discordUserId: row[8],
+                ticketChannelId: row[9] || "",
+                screenshotUrl: row[10] || "",
+              });
+            } else {
+              paymentsToDelete.push({
+                orderId: row[0],
+                robloxUsername: row[1],
+                discordUsername: row[2],
+                discordUserId: row[3],
+                robuxAmount: parseInt(row[4]) || 0,
+                paymentAmount: parseInt(row[5]) || 0,
+                screenshotUrl: row[6] || "",
+                createdAt: row[7] || new Date().toISOString(),
+                status: row[8] as "complete",
+                ticketChannelId: row[9] || "",
+                completionTimestamp: row[10],
+              });
+            }
           }
         }
       }
@@ -227,16 +271,16 @@ export class PaymentSheetService {
     try {
       const headers = [
         "Order ID",
-        "Roblox Username",
         "Discord Username",
-        "Discord User ID",
+        "Roblox Username",
         "Robux Amount",
         "Payment Amount (NPR)",
-        "Screenshot URL",
-        "Created At",
         "Status",
-        "Ticket Channel ID",
+        "Created At",
         "Completion Timestamp",
+        "Discord User ID",
+        "Ticket Channel ID",
+        "Screenshot URL",
       ];
 
       await sheets.spreadsheets.values.update({

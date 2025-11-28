@@ -13,6 +13,7 @@ import {
   PermissionFlagsBits,
   Collection,
   TextChannel,
+  MessageFlags,
 } from "discord.js";
 import { config } from "../utils/config";
 import { PaymentSheetService } from "../utils/sheets";
@@ -122,7 +123,7 @@ async function handleVerifyPaymentButton(interaction: ButtonInteraction) {
   if (!VerificationUtils.hasModeratorPermission(interaction)) {
     return await interaction.reply({
       embeds: [VerificationUtils.createPermissionDeniedEmbed()],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -155,7 +156,7 @@ async function handleQuickVerifyButton(interaction: ButtonInteraction) {
   if (!VerificationUtils.hasModeratorPermission(interaction)) {
     return await interaction.reply({
       embeds: [VerificationUtils.createPermissionDeniedEmbed()],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -189,7 +190,7 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
     interaction.fields.getTextInputValue("roblox_username");
   const robuxAmount = interaction.fields.getTextInputValue("robux_amount");
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     // Validate robux amount
@@ -263,7 +264,7 @@ async function handleVerifyModalSubmit(interaction: ModalSubmitInteraction) {
   await interaction.reply({
     embeds: [verifyEmbed],
     components: [verifyButtons],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 
   // Handle final verification buttons
@@ -465,12 +466,12 @@ async function handleInteractionError(interaction: any, error: any) {
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
         content: errorMessage,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.reply({
         content: errorMessage,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   } catch (replyError) {
