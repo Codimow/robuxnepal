@@ -1,6 +1,8 @@
 import { google } from "googleapis";
 import { JWT } from "google-auth-library";
 import { config } from "./config";
+import { logger } from "./logger";
+import { GoogleSheetsError, retryWithBackoff } from "./errorHandler";
 
 // Initialize Google Sheets API
 const auth = new JWT({
@@ -69,12 +71,12 @@ export class PaymentSheetService {
         },
       });
 
-      console.log(
-        `Payment data added to sheet successfully - Order ID: ${paymentData.orderId}`,
+      logger.success(
+        `Payment data added to sheet - Order ID: ${paymentData.orderId}`,
       );
     } catch (error) {
-      console.error("Error adding payment to sheet:", error);
-      throw new Error(
+      logger.error("Error adding payment to sheet", error);
+      throw new GoogleSheetsError(
         `Failed to add payment to sheet: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
@@ -131,10 +133,10 @@ export class PaymentSheetService {
         });
       }
 
-      console.log(`Payment status updated to ${status} for order ${orderId}`);
+      logger.success(`Payment status updated to ${status} for order ${orderId}`);
     } catch (error) {
-      console.error("Error updating payment status:", error);
-      throw error;
+      logger.error("Error updating payment status", error);
+      throw new GoogleSheetsError("Failed to update payment status");
     }
   }
 
@@ -193,8 +195,8 @@ export class PaymentSheetService {
 
       return null;
     } catch (error) {
-      console.error("Error getting payment data:", error);
-      throw error;
+      logger.error("Error getting payment data", error);
+      throw new GoogleSheetsError("Failed to retrieve payment data");
     }
   }
 
@@ -261,8 +263,8 @@ export class PaymentSheetService {
 
       return paymentsToDelete;
     } catch (error) {
-      console.error("Error getting completed payments for deletion:", error);
-      throw error;
+      logger.error("Error getting completed payments for deletion", error);
+      throw new GoogleSheetsError("Failed to retrieve completed payments");
     }
   }
 
@@ -292,10 +294,10 @@ export class PaymentSheetService {
         },
       });
 
-      console.log("Sheet initialized with headers");
+      logger.success("Sheet initialized with headers");
     } catch (error) {
-      console.error("Error initializing sheet:", error);
-      throw error;
+      logger.error("Error initializing sheet", error);
+      throw new GoogleSheetsError("Failed to initialize sheet");
     }
   }
 }

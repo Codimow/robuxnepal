@@ -7,6 +7,7 @@ import {
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
+import { logger } from "./utils/logger";
 
 dotenv.config();
 
@@ -108,12 +109,12 @@ async function checkAndDeleteCompletedTickets() {
                 await channel.delete(
                   "Order completed - Auto-deletion after 24 hours",
                 );
-                console.log(
+                logger.info(
                   `Deleted ticket channel for order ${payment.orderId}`,
                 );
               } catch (err) {
-                console.error(
-                  `Error deleting channel for order ${payment.orderId}:`,
+                logger.error(
+                  `Error deleting channel for order ${payment.orderId}`,
                   err,
                 );
               }
@@ -121,25 +122,19 @@ async function checkAndDeleteCompletedTickets() {
           }
         }
       } catch (error) {
-        console.error(
-          `Error processing deletion for order ${payment.orderId}:`,
+        logger.error(
+          `Error processing deletion for order ${payment.orderId}`,
           error,
         );
       }
     }
   } catch (error) {
-    console.error("Error checking for completed tickets:", error);
+    logger.error("Error checking for completed tickets", error);
   }
 }
 
-// Check for completed tickets every hour
-setInterval(checkAndDeleteCompletedTickets, 60 * 60 * 1000);
-
-// Run check on bot start
-client.once("ready", () => {
-  console.log("Checking for tickets that need auto-deletion...");
-  checkAndDeleteCompletedTickets();
-});
+// Periodic cleanup is handled by ready event
+// Auto-close is now handled immediately after completion in verification.ts
 
 // Add interaction handler for slash commands and modals
 // Interaction handling is now managed by the interactionCreate event handler
@@ -176,7 +171,7 @@ client.on("messageCreate", async (message) => {
 
       await message.channel.send({ embeds: [warning] });
     } catch (error) {
-      console.error("Error handling invalid message:", error);
+      logger.error("Error handling invalid message", error);
     }
     return;
   }
@@ -209,7 +204,7 @@ client.on("messageCreate", async (message) => {
 
         await message.channel.send({ embeds: [error] });
       } catch (error) {
-        console.error("Error handling invalid file type:", error);
+        logger.error("Error handling invalid file type", error);
       }
       return;
     }
@@ -251,7 +246,7 @@ client.on("messageCreate", async (message) => {
         if (robuxAmount > 0 && robloxUsername !== "Unknown") break;
       }
     } catch (error) {
-      console.error("Error fetching messages for ticket info:", error);
+      logger.error("Error fetching messages for ticket info", error);
     }
 
     // Store payment data
@@ -318,7 +313,7 @@ client.on("messageCreate", async (message) => {
     // Add reaction to original message
     await message.react("✅");
   } catch (error) {
-    console.error("Error processing payment screenshot:", error);
+    logger.error("Error processing payment screenshot", error);
   }
 });
 

@@ -18,6 +18,13 @@ import {
 import { config } from "../utils/config";
 import { PaymentSheetService } from "../utils/sheets";
 import { VerificationUtils } from "../utils/verification";
+import { logger } from "../utils/logger";
+import {
+  validateRobloxUsername,
+  validateRobuxAmount,
+  sanitizeInput,
+} from "../utils/validators";
+import { handleError } from "../utils/errorHandler";
 
 interface ExtendedClient {
   commands: Collection<string, any>;
@@ -42,7 +49,7 @@ export = {
         await handleModalSubmit(interaction);
       }
     } catch (error) {
-      console.error("Error handling interaction:", error);
+      logger.error("Error handling interaction", error);
       await handleInteractionError(interaction, error);
     }
   },
@@ -193,11 +200,46 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
-    // Validate robux amount
-    const robuxAmountNum = parseInt(robuxAmount);
-    if (isNaN(robuxAmountNum) || robuxAmountNum <= 0) {
-      throw new Error("Invalid Robux amount");
+    // Validate roblox username
+    const usernameValidation = validateRobloxUsername(robloxUsername);
+    if (!usernameValidation.valid) {
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(config.EMBED_COLORS.ERROR)
+            .setTitle("❌ Invalid Username")
+            .setDescription(usernameValidation.error || "Invalid Roblox username")
+            .setFooter({ text: "Please try again with a valid username" })
+            .setTimestamp(),
+        ],
+      });
+      return;
     }
+
+    // Validate robux amount
+    const amountValidation = validateRobuxAmount(
+      robuxAmount,
+      config.ROBUX_MIN,
+      config.ROBUX_MAX,
+    );
+    if (!amountValidation.valid) {
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(config.EMBED_COLORS.ERROR)
+            .setTitle("❌ Invalid Amount")
+            .setDescription(
+              amountValidation.error ||
+              `Amount must be between ${config.ROBUX_MIN} and ${config.ROBUX_MAX} Robux`,
+            )
+            .setFooter({ text: "Please try again with a valid amount" })
+            .setTimestamp(),
+        ],
+      });
+      return;
+    }
+
+    const robuxAmountNum = amountValidation.value!;
 
     // Create ticket channel
     const ticketChannel = await createTicketChannel(
@@ -244,8 +286,9 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
       ticketChannel,
     );
   } catch (error) {
-    console.error("Error creating ticket:", error);
-    await sendTicketError(interaction);
+    logger.error("Error creating ticket", error);
+    const { embed } = handleError(error, "ticket creation");
+    await interaction.editReply({ embeds: [embed] });
   }
 }
 
@@ -294,6 +337,7 @@ async function handleVerifyModalSubmit(interaction: ModalSubmitInteraction) {
         components: [],
       });
     } catch (error) {
+      logger.error("Error in verification modal", error);
       await interaction.editReply({
         embeds: [
           VerificationUtils.createVerificationErrorEmbed(

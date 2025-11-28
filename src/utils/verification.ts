@@ -5,10 +5,10 @@ import {
   ButtonStyle,
   ButtonInteraction,
   ModalSubmitInteraction,
-  Collection,
 } from "discord.js";
 import { config } from "./config";
 import { PaymentSheetService } from "./sheets";
+import { logger } from "./logger";
 
 export interface VerificationData {
   orderId: string;
@@ -25,13 +25,6 @@ export class VerificationUtils {
   static hasModeratorPermission(
     interaction: ButtonInteraction | ModalSubmitInteraction,
   ): boolean {
-    if (
-      !config.MODERATOR_ROLE_ID ||
-      config.MODERATOR_ROLE_ID === "MODERATOR_ROLE_ID"
-    ) {
-      return false;
-    }
-
     // Check if member has moderator role
     const memberRoles = interaction.member?.roles;
     if (memberRoles && "cache" in memberRoles) {
@@ -114,10 +107,10 @@ export class VerificationUtils {
         notes
           ? { name: "📝 Notes", value: notes, inline: false }
           : {
-              name: "📝 Notes",
-              value: "No additional notes provided",
-              inline: false,
-            },
+            name: "📝 Notes",
+            value: "No additional notes provided",
+            inline: false,
+          },
       )
       .setTimestamp();
   }
@@ -131,31 +124,37 @@ export class VerificationUtils {
     status: "complete" | "incomplete",
     notes: string,
   ): Promise<void> {
-    // Get payment data
-    const paymentData = await PaymentSheetService.getPaymentByOrderId(orderId);
-    if (!paymentData) {
-      throw new Error("Payment data not found");
-    }
+    try {
+      // Get payment data
+      const paymentData = await PaymentSheetService.getPaymentByOrderId(orderId);
+      if (!paymentData) {
+        throw new Error("Payment data not found");
+      }
 
-    // Update payment status in sheets
-    await PaymentSheetService.updatePaymentStatus(orderId, status);
+      // Update payment status in sheets
+      await PaymentSheetService.updatePaymentStatus(orderId, status);
+      logger.success(`Payment ${orderId} marked as ${status}`);
 
-    // Create verification result embed
-    const verificationEmbed = this.createVerificationResultEmbed(
-      paymentData,
-      status,
-      interaction.user.tag,
-      notes,
-    );
+      // Create verification result embed
+      const verificationEmbed = this.createVerificationResultEmbed(
+        paymentData,
+        status,
+        interaction.user.tag,
+        notes,
+      );
 
-    // Send verification message to channel
-    if (interaction.channel && "send" in interaction.channel) {
-      await interaction.channel.send({ embeds: [verificationEmbed] });
-    }
+      // Send verification message to channel
+      if (interaction.channel && "send" in interaction.channel) {
+        await interaction.channel.send({ embeds: [verificationEmbed] });
+      }
 
-    // Handle completion if order is complete
-    if (status === "complete") {
-      await this.handleOrderCompletion(interaction, paymentData);
+      // Handle completion if order is complete
+      if (status === "complete") {
+        await this.handleOrderCompletion(interaction, paymentData);
+      }
+    } catch (error) {
+      logger.error("Error processing verification", error);
+      throw error;
     }
   }
 
@@ -216,7 +215,7 @@ export class VerificationUtils {
   }
 
   /**
-   * Handle order completion - send success message and schedule deletion
+   * Handle order completion - send success message and auto-close ticket
    */
   static async handleOrderCompletion(
     interaction: ButtonInteraction | ModalSubmitInteraction,
@@ -226,7 +225,7 @@ export class VerificationUtils {
       .setColor(config.EMBED_COLORS.SUCCESS)
       .setTitle("🎉 Order Completed Successfully!")
       .setDescription(
-        "Thanks! Your order is completed. This ticket will be automatically deleted in 24 hours.",
+        `**Congratulations!** Your Robux order has been completed.\n\n⚠️ This ticket will automatically close in **30 seconds**.`,
       )
       .addFields(
         { name: "🆔 Order ID", value: paymentData.orderId, inline: true },
@@ -246,72 +245,71 @@ export class VerificationUtils {
           value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
           inline: true,
         },
-        {
-          name: "🗑️ Auto-delete",
-          value: `<t:${Math.floor(Date.now() / 1000) + 86400}:R>`,
-          inline: true,
-        },
       )
-      .setFooter({ text: "Thank you for choosing Robux Nepal!" })
+      .setFooter({ text: "Thank you for choosing Robux Nepal! 💙" })
       .setTimestamp();
 
     // Send completion message with user mention
     if (interaction.channel && "send" in interaction.channel) {
       await interaction.channel.send({
-        content: `<@${paymentData.discordUserId}>`,
+        content: `<@${paymentData.discordUserId}> 🎊 Your order is complete!`,
         embeds: [successEmbed],
       });
     }
 
-    // Schedule auto-deletion after 24 hours
-    this.scheduleTicketDeletion(interaction, paymentData, 86400000); // 24 hours in milliseconds
+    // Schedule auto-close after 30 seconds
+    this.scheduleTicketAutoClose(interaction, paymentData);
   }
 
   /**
-   * Schedule ticket deletion after completion
+   * Schedule automatic ticket closure after completion
    */
-  static scheduleTicketDeletion(
+  static scheduleTicketAutoClose(
     interaction: ButtonInteraction | ModalSubmitInteraction,
     paymentData: any,
-    delay: number,
   ): void {
     setTimeout(async () => {
       try {
         if (!interaction.channel) return;
 
-        const deleteEmbed = new EmbedBuilder()
+        const closeEmbed = new EmbedBuilder()
           .setColor(config.EMBED_COLORS.INFO)
-          .setTitle("🗑️ Ticket Auto-Deletion")
+          .setTitle("🔒 Auto-Closing Ticket")
           .setDescription(
-            "This ticket is being automatically deleted as the order was completed 24 hours ago.",
+            "This ticket is now being closed as your order has been completed.\n\nThank you for using Robux Nepal!",
           )
           .addFields(
             { name: "🆔 Order ID", value: paymentData.orderId, inline: true },
             {
               name: "📅 Completed",
-              value: `<t:${Math.floor(Date.now() / 1000) - 86400}:R>`,
+              value: `<t:${Math.floor(Date.now() / 1000) - 30}:R>`,
               inline: true,
             },
           )
-          .setFooter({ text: "Robux Nepal Ticket System" })
+          .setFooter({ text: "Have a great day! 🌟" })
           .setTimestamp();
 
         if (interaction.channel && "send" in interaction.channel) {
-          await interaction.channel.send({ embeds: [deleteEmbed] });
+          await interaction.channel.send({ embeds: [closeEmbed] });
         }
 
-        // Wait 5 seconds before deleting to show the message
+        // Wait 3 seconds to show the message, then delete channel
         setTimeout(async () => {
-          if (interaction.channel && "delete" in interaction.channel) {
-            await interaction.channel.delete(
-              "Order completed - Auto-deletion after 24 hours",
-            );
+          try {
+            if (interaction.channel && "delete" in interaction.channel) {
+              await interaction.channel.delete(
+                `Order ${paymentData.orderId} completed - Auto-closed`,
+              );
+              logger.info(`Auto-closed ticket for order ${paymentData.orderId}`);
+            }
+          } catch (error) {
+            logger.error("Error deleting ticket channel", error);
           }
-        }, 5000);
+        }, 3000);
       } catch (error) {
-        console.error("Error auto-deleting ticket:", error);
+        logger.error("Error auto-closing ticket", error);
       }
-    }, delay);
+    }, config.AUTO_CLOSE_DELAY_MS);
   }
 
   /**
