@@ -260,6 +260,7 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
       paymentAmount: robuxAmountNum,
       status: "pending",
       createdAt: new Date().toISOString(),
+      ticketChannelId: ticketChannel.id,
     });
 
     // Create ticket embed with verification buttons

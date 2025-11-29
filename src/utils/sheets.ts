@@ -200,6 +200,127 @@ export class PaymentSheetService {
     }
   }
 
+  // Get payment data by Ticket Channel ID
+  static async getPaymentByChannelId(
+    channelId: string,
+  ): Promise<PaymentData | null> {
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "Sheet1!A:K",
+      });
+
+      const rows = response.data.values;
+      if (!rows) return null;
+
+      for (const row of rows) {
+        // Detect if this is old format or new format
+        const isNewFormat =
+          row[5] === "pending" ||
+          row[5] === "incomplete" ||
+          row[5] === "complete";
+        const ticketChannelIdIndex = isNewFormat ? 9 : 9; // Both seem to be at index 9 based on previous code, but let's verify
+
+        // In new format: OrderId(0), DiscordUsername(1), RobloxUsername(2), RobuxAmount(3), PaymentAmount(4), Status(5), CreatedAt(6), CompletionTimestamp(7), DiscordUserId(8), TicketChannelId(9), ScreenshotURL(10)
+        // In old format: OrderId(0), RobloxUsername(1), DiscordUsername(2), DiscordUserId(3), RobuxAmount(4), PaymentAmount(5), ScreenshotURL(6), CreatedAt(7), Status(8), TicketChannelId(9), CompletionTimestamp(10)
+
+        if (row[9] === channelId) {
+          if (isNewFormat) {
+            return {
+              orderId: row[0],
+              discordUsername: row[1],
+              robloxUsername: row[2],
+              robuxAmount: parseInt(row[3]) || 0,
+              paymentAmount: parseInt(row[4]) || 0,
+              status: row[5] as "pending" | "incomplete" | "complete",
+              createdAt: row[6] || new Date().toISOString(),
+              completionTimestamp: row[7] || undefined,
+              discordUserId: row[8],
+              ticketChannelId: row[9] || "",
+              screenshotUrl: row[10] || "",
+            };
+          } else {
+            return {
+              orderId: row[0],
+              robloxUsername: row[1],
+              discordUsername: row[2],
+              discordUserId: row[3],
+              robuxAmount: parseInt(row[4]) || 0,
+              paymentAmount: parseInt(row[5]) || 0,
+              screenshotUrl: row[6] || "",
+              createdAt: row[7] || new Date().toISOString(),
+              status: row[8] as "pending" | "incomplete" | "complete",
+              ticketChannelId: row[9] || "",
+              completionTimestamp: row[10] || undefined,
+            };
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      logger.error("Error getting payment data by channel ID", error);
+      throw new GoogleSheetsError("Failed to retrieve payment data");
+    }
+  }
+
+  // Update payment screenshot URL
+  static async updatePaymentScreenshot(
+    orderId: string,
+    screenshotUrl: string,
+  ): Promise<void> {
+    try {
+      // First, find the row with the order ID
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "Sheet1!A:K",
+      });
+
+      const rows = response.data.values;
+      if (!rows) return;
+
+      // Find the row index (0-based)
+      let rowIndex = -1;
+      let isNewFormat = true;
+
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i][0] === orderId) {
+          rowIndex = i + 1; // Convert to 1-based index
+          isNewFormat =
+            rows[i][5] === "pending" ||
+            rows[i][5] === "incomplete" ||
+            rows[i][5] === "complete";
+          break;
+        }
+      }
+
+      if (rowIndex === -1) {
+        throw new Error("Order ID not found");
+      }
+
+      // Determine column for screenshot URL
+      // New format: K (11th column)
+      // Old format: G (7th column)
+      const columnLetter = isNewFormat ? "K" : "G";
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `Sheet1!${columnLetter}${rowIndex}`,
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [[screenshotUrl]],
+        },
+      });
+
+      logger.success(
+        `Payment screenshot updated for order ${orderId}`,
+      );
+    } catch (error) {
+      logger.error("Error updating payment screenshot", error);
+      throw new GoogleSheetsError("Failed to update payment screenshot");
+    }
+  }
+
   // Get all completed payments that need deletion (completed 24+ hours ago)
   static async getCompletedPaymentsForDeletion(): Promise<PaymentData[]> {
     try {

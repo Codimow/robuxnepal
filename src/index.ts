@@ -219,52 +219,75 @@ client.on("messageCreate", async (message) => {
     const firstAttachment = message.attachments.first();
     if (!firstAttachment) return;
 
-    // Generate unique order ID
-    const orderId = `RBX-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-
-    // Extract payment info from channel topic or previous messages
-    // For now, we'll get it from the channel name and make some assumptions
-    // Try to get robux amount and roblox username from recent messages in the channel
+    // Check if payment already exists for this channel
+    let paymentData = await PaymentSheetService.getPaymentByChannelId(
+      message.channel.id,
+    );
+    let orderId = "";
     let robuxAmount = 0;
     let robloxUsername = "Unknown";
-    try {
-      const messages = await message.channel.messages.fetch({ limit: 10 });
-      for (const msg of messages.values()) {
-        if (msg.embeds.length > 0) {
-          const embed = msg.embeds[0];
-          if (embed.fields) {
-            for (const field of embed.fields) {
-              if (field.name === "💰 Robux Amount") {
-                robuxAmount = parseInt(field.value) || 0;
-              }
-              if (field.name === "🎮 Roblox Username") {
-                robloxUsername = field.value;
+
+    if (paymentData) {
+      // Payment exists, update it
+      orderId = paymentData.orderId;
+      robuxAmount = paymentData.robuxAmount;
+      robloxUsername = paymentData.robloxUsername;
+
+      // Update screenshot URL
+      await PaymentSheetService.updatePaymentScreenshot(
+        orderId,
+        firstAttachment.url,
+      );
+
+      // Update status to incomplete if it was pending
+      if (paymentData.status === "pending") {
+        await PaymentSheetService.updatePaymentStatus(orderId, "incomplete");
+      }
+    } else {
+      // Payment doesn't exist (fallback logic)
+      // Generate unique order ID
+      orderId = `RBX-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+      // Extract payment info from channel topic or previous messages
+      try {
+        const messages = await message.channel.messages.fetch({ limit: 10 });
+        for (const msg of messages.values()) {
+          if (msg.embeds.length > 0) {
+            const embed = msg.embeds[0];
+            if (embed.fields) {
+              for (const field of embed.fields) {
+                if (field.name === "💰 Robux Amount") {
+                  robuxAmount = parseInt(field.value) || 0;
+                }
+                if (field.name === "🎮 Roblox Username") {
+                  robloxUsername = field.value;
+                }
               }
             }
           }
+          if (robuxAmount > 0 && robloxUsername !== "Unknown") break;
         }
-        if (robuxAmount > 0 && robloxUsername !== "Unknown") break;
+      } catch (error) {
+        logger.error("Error fetching messages for ticket info", error);
       }
-    } catch (error) {
-      logger.error("Error fetching messages for ticket info", error);
+
+      // Store payment data
+      const newPaymentData = {
+        orderId: orderId,
+        robloxUsername: robloxUsername,
+        discordUsername: message.author.tag,
+        discordUserId: message.author.id,
+        robuxAmount: robuxAmount,
+        paymentAmount: robuxAmount, // 1 Robux = 1 NPR
+        screenshotUrl: firstAttachment.url,
+        createdAt: new Date().toISOString(),
+        status: "incomplete" as const,
+        ticketChannelId: message.channel.id,
+      };
+
+      // Save to Google Sheets
+      await PaymentSheetService.addPayment(newPaymentData);
     }
-
-    // Store payment data
-    const paymentData = {
-      orderId: orderId,
-      robloxUsername: robloxUsername,
-      discordUsername: message.author.tag,
-      discordUserId: message.author.id,
-      robuxAmount: robuxAmount,
-      paymentAmount: robuxAmount, // 1 Robux = 1 NPR
-      screenshotUrl: firstAttachment.url,
-      createdAt: new Date().toISOString(),
-      status: "incomplete" as const,
-      ticketChannelId: message.channel.id,
-    };
-
-    // Save to Google Sheets
-    await PaymentSheetService.addPayment(paymentData);
 
     const paymentEmbed = new EmbedBuilder()
       .setColor(config.EMBED_COLORS.INFO)
