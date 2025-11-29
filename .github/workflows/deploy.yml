@@ -1,0 +1,40 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          script: |
+            # Navigate to the project directory
+            cd /home/codimo/robuxnepal
+            
+            # Pull the latest changes
+            git pull origin main
+            
+            # Install dependencies
+            npm install
+            
+            # Build the project
+            npm run build
+            
+            # Restart the bot using PM2
+            # Assuming the process name is 'robuxnepal-bot'
+            pm2 restart robuxnepal-bot || pm2 start dist/index.js --name robuxnepal-bot
+            
+            # Save PM2 process list
+            pm2 save
