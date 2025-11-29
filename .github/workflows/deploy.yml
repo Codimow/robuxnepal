@@ -21,7 +21,7 @@ jobs:
           port: ${{ secrets.PORT }}
           script: |
             # Navigate to the project directory
-            cd /home/codimo/robuxnepal
+            cd /root/robuxnepal
             
             # Pull the latest changes
             git pull origin main
@@ -32,9 +32,6 @@ jobs:
             # Build the project
             npm run build
             
-            # Restart the bot using PM2
-            # Assuming the process name is 'robuxnepal-bot'
-            pm2 restart robuxnepal-bot || pm2 start dist/index.js --name robuxnepal-bot
-            
-            # Save PM2 process list
-            pm2 save
+            # Restart the bot using systemd
+            # Assumes the service name is 'robuxnepal'
+            systemctl restart robuxnepal
