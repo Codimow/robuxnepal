@@ -19,6 +19,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
+          timeout: 60s
           script: |
             # Navigate to the project directory
             cd /root/robuxnepal
