@@ -14,6 +14,7 @@ import {
   Collection,
   TextChannel,
   MessageFlags,
+  OverwriteType,
 } from "discord.js";
 import { config } from "../utils/config";
 import { PaymentSheetService } from "../utils/sheets";
@@ -368,11 +369,13 @@ async function createTicketChannel(
 ) {
   const permissionOverwrites = [
     {
-      id: interaction.guild!.roles.everyone,
+      id: interaction.guild!.roles.everyone.id,
+      type: OverwriteType.Role,
       deny: [PermissionFlagsBits.ViewChannel],
     },
     {
       id: interaction.user.id,
+      type: OverwriteType.Member,
       allow: [
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.SendMessages,
@@ -387,6 +390,7 @@ async function createTicketChannel(
   ) {
     permissionOverwrites.push({
       id: config.MODERATOR_ROLE_ID,
+      type: OverwriteType.Role,
       allow: [
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.SendMessages,
