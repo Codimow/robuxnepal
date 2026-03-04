@@ -19,6 +19,7 @@
   "dependencies": {
     "discord.js": "^14.25.0",
     "dotenv": "^17.2.3",
+    "effect": "^3.19.19",
     "google-auth-library": "^10.5.0",
     "googleapis": "^166.0.0"
   },

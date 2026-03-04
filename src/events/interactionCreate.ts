@@ -16,9 +16,11 @@ import {
   MessageFlags,
   OverwriteType,
 } from "discord.js";
+import { Effect } from "effect";
 import { config } from "../utils/config";
 import { PaymentSheetService } from "../utils/sheets";
 import { VerificationUtils } from "../utils/verification";
+import { TicketEngine } from "../utils/ticketEngine";
 import { logger } from "../utils/logger";
 import {
   validateRobloxUsername,
@@ -242,27 +244,10 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
 
     const robuxAmountNum = amountValidation.value!;
 
-    // Create ticket channel
-    const ticketChannel = await createTicketChannel(
-      interaction,
-      robloxUsername,
+    // Execute the Ticket Engine Pipeline (Enterprise-Grade Stabilization)
+    const { ticketChannel, orderId } = await Effect.runPromise(
+      TicketEngine.createTicket(interaction, robloxUsername, robuxAmountNum)
     );
-
-    // Generate order ID
-    const orderId = VerificationUtils.generateOrderId();
-
-    // Save to Google Sheets
-    await PaymentSheetService.addPayment({
-      orderId,
-      discordUsername: interaction.user.tag,
-      discordUserId: interaction.user.id,
-      robloxUsername,
-      robuxAmount: robuxAmountNum,
-      paymentAmount: robuxAmountNum,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      ticketChannelId: ticketChannel.id,
-    });
 
     // Create ticket embed with verification buttons
     const privateTicketEmbed = createPrivateTicketEmbed(
@@ -288,8 +273,8 @@ async function handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
       ticketChannel,
     );
   } catch (error) {
-    logger.error("Error creating ticket", error);
-    const { embed } = handleError(error, "ticket creation");
+    logger.error("Error creating ticket via Engine", error);
+    const { embed } = handleError(error, "ticket engine execution");
     await interaction.editReply({ embeds: [embed] });
   }
 }
@@ -362,51 +347,6 @@ async function handleVerifyModalSubmit(interaction: ModalSubmitInteraction) {
 }
 
 // Utility functions
-
-async function createTicketChannel(
-  interaction: ModalSubmitInteraction,
-  robloxUsername: string,
-) {
-  const permissionOverwrites = [
-    {
-      id: interaction.guild!.roles.everyone.id,
-      type: OverwriteType.Role,
-      deny: [PermissionFlagsBits.ViewChannel],
-    },
-    {
-      id: interaction.user.id,
-      type: OverwriteType.Member,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ReadMessageHistory,
-      ],
-    },
-  ];
-
-  if (
-    config.MODERATOR_ROLE_ID &&
-    config.MODERATOR_ROLE_ID !== "MODERATOR_ROLE_ID"
-  ) {
-    permissionOverwrites.push({
-      id: config.MODERATOR_ROLE_ID,
-      type: OverwriteType.Role,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.ManageMessages,
-      ],
-    });
-  }
-
-  return await interaction.guild!.channels.create({
-    name: `${config.TICKET_CHANNEL_PREFIX}${interaction.user.username}`,
-    type: ChannelType.GuildText,
-    parent: config.TICKET_CATEGORY_ID || undefined,
-    permissionOverwrites: permissionOverwrites,
-  });
-}
 
 function createPrivateTicketEmbed(
   interaction: ModalSubmitInteraction,
