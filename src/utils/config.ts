@@ -23,6 +23,25 @@ export interface BotConfig {
     };
 }
 
+function parseOptionalHttpsUrl(raw: string | undefined, key: string): string | null {
+    if (!raw) return null;
+
+    const value = raw.trim();
+    if (!value) return null;
+
+    try {
+        const url = new URL(value);
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+            logger.warn(`${key} ignored: only http/https URLs are supported`);
+            return null;
+        }
+        return url.toString();
+    } catch {
+        logger.warn(`${key} ignored: invalid URL format`);
+        return null;
+    }
+}
+
 /**
  * Validate required environment variables
  */
@@ -73,7 +92,7 @@ function loadConfig(): BotConfig {
 
         // Optional settings
         TICKET_CATEGORY_ID: process.env.TICKET_CATEGORY_ID || null,
-        QR_CODE_URL: process.env.QR_CODE_URL || null,
+        QR_CODE_URL: parseOptionalHttpsUrl(process.env.QR_CODE_URL, "QR_CODE_URL"),
 
         // Ticket settings
         TICKET_CHANNEL_PREFIX: "ticket-",
